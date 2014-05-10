@@ -1,10 +1,58 @@
-from urllib import request
-import re
+import unittest
 
-requested_songs_ids = []
-list_url = "http://www.viperial.com/tracks/list/{}"
-pattern = r'hot[1-2].*?/(\d{5})/.*?(\w{3}\s*\d{1,2},\s*\d{4}).*?(?:Hip-Hop|Rap)'
-r = request.urlopen(list_url.format(2))
-bytecode = r.read()
-htmlstr = bytecode.decode()
-a = re.findall(pattern, htmlstr)
+from viperial import before_period
+from viperial import after_period
+from viperial import parse_date
+from viperial import song_wanted
+
+class TimePeriodTest(unittest.TestCase):
+
+    def test_before_period_correct(self):
+        self.assertTrue(before_period(('2014', 'May', '11'),
+                                       ('2015', 'May', '11')))
+        self.assertTrue(before_period(('2014', 'May', '11'),
+                                       ('2014', 'Dec', '11')))
+        self.assertTrue(before_period(('2014', 'May', '11'),
+                                       ('2014', 'May', '14')))
+        self.assertFalse(before_period((('2014', 'May', '15'))))
+        
+
+    def test_before_period_incorrect(self):
+        self.assertFalse(before_period(('2014', 'May', '11'),
+                                       ('2014', 'May', '11')))
+        self.assertFalse(before_period(('2014', 'May', '11'),
+                                       ('2013', 'May', '11')))
+        self.assertFalse(before_period(('2014', 'May', '11'),
+                                       ('2014', 'Jan', '11')))
+        self.assertFalse(before_period(('2014', 'May', '11'),
+                                       ('2014', 'May', '04')))
+        self.assertFalse(after_period((('2015', 'May', '11'))))
+
+
+    def test_after_period_correct(self):
+        self.assertTrue(before_period(('2014', 'May', '11'),
+                                       ('2015', 'May', '11')))
+        self.assertTrue(before_period(('2014', 'May', '11'),
+                                       ('2014', 'Oct', '11')))
+        self.assertTrue(before_period(('2014', 'May', '11'),
+                                       ('2014', 'May', '21')))
+
+
+    def test_after_period_incorrect(self):
+        
+        self.assertFalse(after_period(('2014', 'May', '11'),
+                                      ('2015', 'May', '11')))
+        self.assertFalse(after_period(('2014', 'May', '11'),
+                                      ('2014', 'Jun', '11')))
+        self.assertFalse(after_period(('2014', 'May', '11'),
+                                      ('2014', 'May', '12')))
+
+    def test_parse_date_correct(self):
+        self.assertEqual(parse_date('May 10, 2014'), ('2014', 'May', '10'))
+
+    def test_song_wanted(self):
+        self.assertTrue(song_wanted(('2014', 'May', '01'), ('2014', 'May', '25'),
+                                    'May 10, 2014', 'Hip-Hop'))
+
+if __name__ == '__main__':
+    unittest.main()
