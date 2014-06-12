@@ -3,160 +3,188 @@ import time
 import re
 import urllib.request
 import shutil
+import datetime
 
 
 MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
           'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-
-def create_directories(this_year = time.strftime("%Y"),
-                       this_month = time.strftime("%B")):
-    os.makedirs("{}/{}".format(this_year, this_month))
+GENRES = ['Rap', 'Hip-Hop', 'RB', 'Pop', 'Soul',
+          'Fusion', 'Electro', '', 'Grime']
 
 
-def get_song_directory(song_date):
-    return str(song_date[0] + song_date[1])
+def create_directories(today_year = time.strftime("%Y"),
+                       today_month = time.strftime("%B")):
+    os.makedirs("{}/{}".format(today_year, today_month))
 
 
-def get_today_date():
-    return (time.strftime("%Y"), time.strftime("%b"), time.strftime("%d"))
+class Date:
+    def __init__(self, song_date):
+        if type(song_date) == tuple:
+            self.year = song_date[0]
+            self.month = song_date[1]
+            self.day = song_date[2]
 
+        elif 'ago' in song_date:
+            """
+            If the song has been uploaded soon, instead of a date it
+            has somehing along the lisnes of "uploaded 2 hours ago"
+            """
+            self.year = time.strftime("%Y")
+            self.month = time.strftime("%b")
+            self.day = time.strftime("%d")
 
-def before_period(song_date, begin_date = None):
-    if begin_date == None:
-        return False
-    else:
-        if int(begin_date[0]) > int(song_date[0]):
-            return True
-        elif int(begin_date[0]) == int(song_date[0]):
-            if MONTHS.index(begin_date[1]) > MONTHS.index(song_date[1]):
-                return True
-            elif MONTHS.index(begin_date[1]) == MONTHS.index(song_date[1]):
-                if int(begin_date[2]) > int(song_date[2]):
-                    return True
-    return False
-
-
-def after_period(song_date, end_date = None):
-    if end_date == None:
-        if int(song_date[0]) <= 2010 and MONTHS.index(song_date[1]) <= 8 and int(song_date[2]) <= 8:
-            return True
         else:
-            return False    
-    else:
-        if int(end_date[0]) < int(song_date[0]):
-            return True
-        elif int(end_date[0]) == int(song_date[0]):
-            if MONTHS.index(end_date[1]) < MONTHS.index(song_date[1]):
-                return True
-            elif MONTHS.index(end_date[1]) == MONTHS.index(song_date[1]):
-                if int(end_date[2]) < int(song_date[2]):
-                    return True
-    return False
+            song_date = song_date.split()     
+            self.year = song_date[2]
+            self.month = song_date[0]
+            self.day = song_date[1][0:-1] 
 
 
-def parse_date(song_date):
-    if 'ago' in song_date:
-        return get_today_date()
-    else:
-        song_date = song_date.split()
-        song_date[1] = song_date[1][0:-1]
-        song_date[0] , song_date[1], song_date[2] = song_date[2] , song_date[0], song_date[1]
-    return tuple(song_date)
+class Song:
+    def __init__(self, viperial_id, title, date):
+        self.title = title
+        self.viperial_id = viperial_id
+        self.date = Date(date)
+        self.sharebeast_id = None
+        self.download_url = None
+        
+    def get_song_directory(self):
+        return self.date.year + "/" + self.date.month
+    
+    def download_song(self):
+        with urllib.request.urlopen(self.download_url) as response, open(self.title + ".mp3", 'wb') as out_file:
+            shutil.copyfileobj(response, out_file)
+        #TODO OS shiz
 
-
-def song_wanted(begin_date, end_date, song_date, genre):
-    if genre == "</li>":
-        return False
-    else:
-        song_date = parse_date(song_date)
-        if (not before_period(song_date, begin_date)
-            and after_period(song_date, end_date)):
-            return True
-    return False
-
-
-def get_wanted_songs_information(current_page, begin_date, end_date):
-    #                       song_id    title       date         genre
-    pattern = r'hot(?:1|2).*?/(\d{5})/(.*?)".*?<i>(.*?)</i>.*?(Hip-Hop|Rap|</li>)'
-    list_url = "http://www.viperial.com/tracks/list/"
-    wanted_song_list = []
-    html_request = urllib.request.urlopen(list_url + str(current_page))
-    current_page = current_page + 1
-    bytecode = html_request.read()
-    htmlstr = bytecode.decode() 
-    wanted_song_list = re.findall(pattern, htmlstr)
-    wanted_song_list = ([song for song in wanted_song_list if
-                         song_wanted(begin_date, end_date, song[2], song[3])])
-    return wanted_song_list
-
-
-def get_sharebeast_id(song_id):
-    pattern = r'="http://www.sharebeast.com/(.*?)" target'
-    song_url = "http://www.viperial.com/tracks/view/{}/".format(song_id)
-    html_request = urllib.request.urlopen(song_url)
-    bytecode = html_request.read()
-    htmlstr = bytecode.decode()
-    sharebeast_id = re.search(pattern, htmlstr)
-    try:
-        result_id = sharebeast_id.groups()[0]
-    except AttributeError:
-        result_id = None
-    return result_id
-
-
-def get_download_address(sharebeast_id):
-    if sharebeast_id == None:
-        return None
-    else:
-        pattern = r'mp3player.*?src="(.*?)".*?"audio/mpeg"'
-        html_request = urllib.request.urlopen("http://www.sharebeast.com/"
-                                              + sharebeast_id)
+    def get_sharebeast_id(self):
+        pattern = r'="http://www.sharebeast.com/(.*?)" target'
+        song_url = "http://www.viperial.com/tracks/view/{}/".format(self.viperial_id)
+        html_request = urllib.request.urlopen(song_url)
         bytecode = html_request.read()
         htmlstr = bytecode.decode()
-        result = re.findall(pattern, htmlstr)
-        return result[0]
+        sharebeast_id = re.search(pattern, htmlstr)
+        try:
+            result_id = sharebeast_id.groups()[0]
+        except AttributeError:
+            result_id = None
+        self.sharebeast_id = result_id
+    
+    def get_download_url(self):
+        if self.sharebeast_id == None:
+            self.download_url = None
+        else:
+            pattern = r'mp3player.*?src="(.*?)".*?"audio/mpeg"'
+            html_request = urllib.request.urlopen("http://www.sharebeast.com/" + self.sharebeast_id)
+            bytecode = html_request.read()
+            htmlstr = bytecode.decode()
+            result = re.findall(pattern, htmlstr)
+            self.download_url = result[0]
+    
+    def is_song_wanted(self, time_period):
+        song_wanted = False
+        if(time_period.date_is_in_time_period(self.date)):
+            song_wanted = True
+        return song_wanted
 
 
-def download_song(url, song_name, directory):
-    song_name = song_name + '.mp3'
-    with urllib.request.urlopen(url) as response, open(song_name, 'wb') as out_file:
-        shutil.copyfileobj(response, out_file)
-    #TODO OS shiz
+class TimePeriod:
+    def __init__(self, begin_date=None, end_date=None):
+        self.begin_date = begin_date
+        self.end_date = end_date
+
+    def date_is_before_period(self, song_date):
+        if self.begin_date == None:
+            return False
+        else:
+            if int(self.begin_date.year) > int(song_date.year):
+                return True
+            elif int(self.begin_date.year) == int(song_date.year):
+                if MONTHS.index(self.begin_date.month) > MONTHS.index(song_date.month):
+                    return True
+                elif MONTHS.index(this.begin_date.month) == MONTHS.index(song_date.month):
+                    if int(self.begin_date.day) > int(song_date.day):
+                        return True
+        return False
+
+    def date_is_after_period(self, song_date):
+        if self.end_date == None:
+            if int(this.end_date.year) <= 2010 and MONTHS.index(this.date.month) <= 8:
+                return True
+            else:
+                return False    
+        else:
+            if int(self.end_date.year) < int(song_date.year):
+                return True
+            elif int(self.end_date.year) == int(song_date.year):
+                if MONTHS.index(self.end_date.month) < MONTHS.index(song_date.month):
+                    return True
+                elif MONTHS.index(self.end_date.month) == MONTHS.index(song_date.month):
+                    if int(self.end_date.day) < int(song_date.day):
+                        return True
+        return False
+    
+    def date_is_in_time_period(self, song_date):
+        if self.date_is_before_period(song_date) or self.date_is_after_period(song_date):
+            return False
+        return True
+
+
+def crawl_entire_page(time_period, genre, current_page):
+    #                       song_id    title       date   
+    pattern = r'hot(?:1|2).*?/(\d{5})/(.*?)".*?<i>(.*?)</i>'
+    genre_url = str(GENRES.index(genre)+1) + '-' + genre
+    list_url = "http://www.viperial.com/tracks/list/genre/{}/".format(genre_url)
+    wanted_song_list = []
+    html_request = urllib.request.urlopen(list_url + str(current_page))
+    bytecode = html_request.read()
+    htmlstr = bytecode.decode() 
+    page_song_list = re.findall(pattern, htmlstr)
+    wanted_song_list = []
+    #wanted_song_list = ([Song(*song) for song in page_song_list
+    #                    if song.song_wanted(time_period)])
+    for song in page_song_list:
+        current_song = Song(*song)
+        if current_song.is_song_wanted(time_period):
+            wanted_song_list.append(current_song)
+    return wanted_song_list
 
 
 def download_entire_page(wanted_songs_list):
     for song in wanted_songs_list:
-        print("    Attempting to download {}.".format(song[1]))
-        song_address = get_download_address(get_sharebeast_id(song[0]))
-        if song_address == None:
+        print("    Attempting to download {}.".format(song.title))
+        song.get_sharebeast_id()
+        song.get_download_url()
+        if song.download_url == None:
             print("    This song has been removed from ShareBeast. Sorry!")
         else:
-            print("        Starting download...".format(song[1]))
-            download_song(song_address, song[1], 1)
+            print("        Starting download...")
+            song.download_song()
             print("        Finished download!")     
 
 
 def main():
-    begin_date = None
-    end_date = ('2014', 'May', '06')
+    wanted_genres = set()
+    #test data
+    begin_date = Date(('2014', 'Jun', '12'))
+    time_period = TimePeriod(None, begin_date)
+    genre = 'Rap'
     current_page = 1
     #TODO add user input
     #while True:
-    wanted_songs_list = get_wanted_songs_information(current_page,
-                                                     begin_date, end_date)
+    wanted_songs_list = crawl_entire_page(time_period, genre, current_page)
     current_page = current_page + 1
-    if not len(wanted_songs_list) == 0:
-        last_song = wanted_songs_list.pop()
-        a = after_period(parse_date(last_song[2]), end_date)
-        if a:
+    #if not len(wanted_songs_list) == 0:
+        #last_song = wanted_songs_list.pop()
+        #a = after_period(parse_date(last_song[2]), end_date)
+        #if a:
             #break
-            pass
-        wanted_songs_list.append(last_song)
+            #pass
+        #wanted_songs_list.append(last_song)
     download_entire_page(wanted_songs_list)
     print("All downloads finished")
     
 
-#main()
+main()
     
 #a = get_wanted_songs_information(2)
