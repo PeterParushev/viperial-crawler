@@ -14,11 +14,6 @@ GENRES = ['Rap', 'Hip-Hop', 'RB', 'Pop', 'Soul',
           'Fusion', 'Electro', '', 'Grime']
 
 
-def create_directories(today_year = time.strftime("%Y"),
-                       today_month = time.strftime("%B")):
-    os.makedirs("{}/{}".format(today_year, today_month))
-
-
 def parse_date(song_date):
     """
     A helper function to parse the multiple date formats used in the site.
@@ -38,9 +33,9 @@ def parse_date(song_date):
         "Jun 12, 2014" and has to be parsed
         """
         song_date = song_date.split()
-        return datetime.datetime(int(song_date[2]),#year
-                                 MONTHS.index(song_date[0]) + 1,#month
-                                 int(song_date[1][0:-1]))#day (slicing the ',')
+        return datetime.datetime(int(song_date[2]),  #year
+                                 MONTHS.index(song_date[0]) + 1,  #month
+                                 int(song_date[1][0:-1]))  #day (slicing ',')
 
 
 class Song:
@@ -50,18 +45,29 @@ class Song:
         self.date = parse_date(date)
         self.sharebeast_id = None
         self.download_url = None
-        
+
     def get_song_directory(self):
         """
         Each song should be saved in a directory
         following the year/month format
         """
-        return self.date.year + "/" + MONTHS[self.date.month]
-    
+        return str(self.date.year) + "/" + MONTHS[self.date.month]
+
     def download_song(self):
-        with urllib.request.urlopen(self.download_url) as response, open(self.title + ".mp3", 'wb') as out_file:
+        os.makedirs(self.get_song_directory(), exist_ok=True)
+        if not os.path.exists(self.get_song_directory() + '/'
+                              + self.title + '.mp3'):
+
+            print("        Starting download...")
+            response = urllib.request.urlopen(self.download_url)
+
+            out_file = open(self.get_song_directory() + '/' +
+                            self.title + ".mp3", 'wb')
+
             shutil.copyfileobj(response, out_file)
-        #TODO OS shiz
+            print("        Finished download!")
+        else:
+            print("        This song has already been downloaded")
 
     def get_sharebeast_id(self):
         pattern = r'="http://www.sharebeast.com/(.*?)" target'
@@ -76,9 +82,9 @@ class Song:
         except AttributeError:
             result_id = None
         self.sharebeast_id = result_id
-    
+
     def get_download_url(self):
-        if self.sharebeast_id == None:
+        if self.sharebeast_id is None:
             self.download_url = None
         else:
             pattern = r'mp3player.*?src="(.*?)".*?"audio/mpeg"'
@@ -88,7 +94,7 @@ class Song:
             htmlstr = bytecode.decode()
             result = re.findall(pattern, htmlstr)
             self.download_url = result[0]
-    
+
     def is_song_wanted(self, time_period):
         song_wanted = False
         if(time_period[0] >= self.date >= time_period[1]):
@@ -97,14 +103,14 @@ class Song:
 
 
 def crawl_entire_page(time_period, genre, current_page):
-    #                       song_id    title       date   
+    #                       song_id    title       date
     pattern = r'hot(?:1|2).*?/(\d{5})/(.*?)".*?<i>(.*?)</i>'
     genre_url = str(GENRES.index(genre)+1) + '-' + genre
     list_url = "http://www.viperial.com/tracks/list/genre/{}/".format(genre_url)
     wanted_song_list = []
     html_request = urllib.request.urlopen(list_url + str(current_page))
     bytecode = html_request.read()
-    htmlstr = bytecode.decode() 
+    htmlstr = bytecode.decode()
     page_song_list = re.findall(pattern, htmlstr)
     wanted_song_list = []
     for song in page_song_list:
@@ -125,10 +131,9 @@ def download_entire_page(wanted_songs_list):
         if song.download_url == None:
             print("    This song has been removed from ShareBeast. Sorry!")
         else:
-            print("        Starting download...")
             song.download_song()
-            print("        Finished download!")
-        
+
+
 def input_genres():
     print("""To select genres, please type the genre id.
 To do so type in a number that includes the
@@ -140,17 +145,18 @@ The genres are:
     genres = input('-->')
     for genre_id in genres:
         genre_id = int(genre_id)
-        if not int(genre_id) in range(0,9):
-            print("    Wrong input! You are going ot have to start over. Sorry!")
+        if not int(genre_id) in range(0, 9):
+            print("  Wrong input! You are going ot have to start over. Sorry!")
             return input_genres()
-            
+
         if genre_id == 8:
-            for i in range(0,7):
+            for i in range(0, 7):
                 wanted_genres.add(GENRES[i])
             wanted_genres.add(GENRES[8])
         else:
             wanted_genres.add(GENRES[genre_id - 1])
     return wanted_genres
+
 
 def input_period():
     print("""To select a time period, please type in a
@@ -172,7 +178,7 @@ time period in the format DD MM YYYY DD MM YYYY""")
         begin_date, end_date = end_date, begin_date
     time_period = (begin_date, end_date)
     return time_period
-    
+
 
 def download_songs():
     wanted_genres = input_genres()
@@ -184,13 +190,13 @@ def download_songs():
             wanted_song_list = crawl_entire_page(time_period,
                                                  genre,
                                                  current_page)
-            if not wanted_song_list is None:
-                print("    Now on page {} of {} songs:".format(current_page, genre))
+            if wanted_song_list is not None:
+                print("    Now on page {} of {} songs:".format(current_page,
+                                                               genre))
                 download_entire_page(wanted_song_list)
             else:
                 break
             current_page = current_page + 1
-            
     print("All downloads finished!")
 
 
@@ -198,6 +204,6 @@ def main():
     print("Welcome to the viperial crawler!")
     download_songs()
     print("Bye!")
-    
+
 
 main()
