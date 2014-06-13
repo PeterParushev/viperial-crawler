@@ -1,9 +1,7 @@
 import unittest
+import datetime
 
-from viperial import before_period
-from viperial import after_period
-from viperial import parse_date
-from viperial import song_wanted
+from viperial import input_period
 
 class TimePeriodTest(unittest.TestCase):
     @unittest.skip("no longer using own date class")
@@ -45,6 +43,12 @@ class TimePeriodTest(unittest.TestCase):
     @unittest.skip("no longer using own date class")
     def test_parse_date_correct(self):
         self.assertEqual(parse_date('May 10, 2014'), ('2014', 'May', '10'))
+
+    @unittest.skip("implementation changed, otherwise was OK")
+    def test_input_period(self):
+        self.assertEqual(input_period("11 11 2014 12 11 2014"),
+                         (datetime.datetime(2014,11,11),
+                          datetime.datetime(2014,11,12)))
 
     
 
