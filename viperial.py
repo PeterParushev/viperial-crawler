@@ -51,7 +51,7 @@ class Song:
         Each song should be saved in a directory
         following the year/month format
         """
-        return str(self.date.year) + "/" + MONTHS[self.date.month]
+        return str(self.date.year) + "/" + MONTHS[self.date.month - 1]
 
     def download_song(self):
         os.makedirs(self.get_song_directory(), exist_ok=True)
