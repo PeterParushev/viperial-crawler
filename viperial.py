@@ -104,22 +104,25 @@ class Song:
 
 def crawl_entire_page(time_period, genre, current_page):
     #                       song_id    title       date
-    pattern = r'hot(?:1|2).*?/(\d{5})/(.*?)".*?<i>(.*?)</i>'
+    # 01 01 2015 28 02 2015
+    pattern = r'hot(?:1|2).*?/(\d+)/(.*?)".*?<i>(.*?)</i>'
     genre_url = str(GENRES.index(genre)+1) + '-' + genre
     list_url = "http://www.viperial.com/tracks/list/genre/{}/".format(genre_url)
     wanted_song_list = []
     html_request = urllib.request.urlopen(list_url + str(current_page))
     bytecode = html_request.read()
     htmlstr = bytecode.decode()
-    page_song_list = re.findall(pattern, htmlstr)
-    wanted_song_list = []
-    for song in page_song_list:
-        current_song = Song(*song)
-        if current_song.is_song_wanted(time_period):
-            wanted_song_list.append(current_song)
-    if (Song(*page_song_list[-1]).date < time_period[1]
-        and len(wanted_song_list) == 0):
-        return None
+    page_song_list = re.findall(pattern, htmlstr.replace('\n', ''))
+    print(page_song_list)
+    if not len(page_song_list) == 0:
+        wanted_song_list = []
+        for song in page_song_list:
+            current_song = Song(*song)
+            if current_song.is_song_wanted(time_period):
+                wanted_song_list.append(current_song)
+        if (Song(*page_song_list[-1]).date < time_period[1]
+            and len(wanted_song_list) == 0):
+            return None
     return wanted_song_list
 
 
@@ -138,7 +141,7 @@ def input_genres():
     print("""To select genres, please type the genre id.
 To do so type in a number that includes the
 genres you want. For example for Rap and Hip-Hop type 12 or 21.
-The genres are:
+input_genresThe genres are:
     1-Rap    2-Hip-hop    3-R&B    4-Pop    5-Soul    6-Fusion
              7-Electro    9-Grime    8- for all above""")
     wanted_genres = set()
